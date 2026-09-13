@@ -5,6 +5,15 @@ function valid(value) { return typeof value === 'number' && Number.isFinite(valu
 function sortedPoints(points) { return [...points].filter(point => valid(point.value)).sort((a, b) => String(a.period).localeCompare(String(b.period))); }
 function latestPoint(points) { const sorted = sortedPoints(points); return sorted[sorted.length - 1] || null; }
 function pointAt(points, year, month) { return points.find(point => point.year === year && point.month === month && valid(point.value)) || null; }
+function referencePeriod(value) {
+  if (/^\d{4}-\d{2}$/.test(value || '')) return value;
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+function latestClosedPoint(points, currentPeriod) {
+  const closed = sortedPoints(points).filter(point => String(point.period) < currentPeriod);
+  return closed[closed.length - 1] || null;
+}
 
 function aggregate(values, method) {
   const usable = values.filter(valid);
@@ -47,22 +56,23 @@ export function renderNavigation(indicators, activeId) {
 }
 
 export function renderOverview(payload) {
+  const currentPeriod = referencePeriod(payload.currentPeriod);
   const priorities = payload.indicators.filter(item => item.priority).sort((a, b) => a.priority - b.priority);
   const cards = priorities.map(indicator => {
     const datasets = indicator.datasets || [];
-    const primary = latestPoint(datasets[0]?.points || []);
+    const primary = latestClosedPoint(datasets[0]?.points || [], currentPeriod);
     const previous = primary ? pointAt(datasets[0].points, primary.year - 1, primary.month) : null;
-    const secondary = latestPoint(datasets[1]?.points || []);
+    const secondary = latestClosedPoint(datasets[1]?.points || [], currentPeriod);
     const mainMetric = primary ? formatValue(primary.value, indicator.unit, true) : 'Não disponível';
     const secondaryMetric = secondary ? `<span>${escapeHtml(datasets[1].name)}: <strong>${escapeHtml(formatValue(secondary.value, indicator.unit, true))}</strong></span>` : '';
     return `<a class="overview-card" href="#${encodeURIComponent(indicator.id)}"><div class="overview-card__top"><span class="overview-card__rank">${String(indicator.priority).padStart(2, '0')}</span><h2>${escapeHtml(indicator.title)}</h2></div><p class="overview-card__metric">${escapeHtml(datasets[0]?.name || '')}${datasets[0]?.name ? ': ' : ''}${escapeHtml(mainMetric)}</p><div class="overview-card__meta"><span>${escapeHtml(primary ? formatPeriod(primary.period) : 'Sem período disponível')}</span>${previous ? changeBadge(primary.value, previous.value, indicator.unit) : ''}${secondaryMetric}</div></a>`;
   }).join('');
-  return `${pageHeader({ title: 'Visão geral' }, 'Último período disponível de cada indicador prioritário e comparação com o mesmo mês do ano anterior.')}<div class="overview-grid">${cards || '<p>Nenhum indicador prioritário foi encontrado.</p>'}</div>${payload.unavailable?.length ? `<p class="quality-note">${payload.unavailable.length} indicador(es) configurado(s) não foram encontrados na planilha atual.</p>` : ''}`;
+  return `${pageHeader({ title: 'Visão geral' }, 'Último mês fechado de cada indicador prioritário e comparação com o mesmo mês do ano anterior. O mês em andamento não entra nesta visão.')}<div class="closed-period-note"><span aria-hidden="true">✓</span><p><strong>Somente meses fechados</strong><br>Referência calculada na atualização do servidor.</p></div><div class="overview-grid">${cards || '<p>Nenhum indicador prioritário foi encontrado.</p>'}</div>${payload.unavailable?.length ? `<p class="quality-note">${payload.unavailable.length} indicador(es) configurado(s) não foram encontrados na planilha atual.</p>` : ''}`;
 }
 
-export function renderIndicator(indicator) {
+export function renderIndicator(indicator, currentPeriod) {
   switch (indicator.kind) {
-    case 'monthly': return renderMonthly(indicator);
+    case 'monthly': return renderMonthly(indicator, referencePeriod(currentPeriod));
     case 'annual-categories': return renderAnnualCategories(indicator);
     case 'annual-series': return renderAnnualSeries(indicator);
     case 'facts': return renderFacts(indicator);
@@ -73,7 +83,7 @@ export function renderIndicator(indicator) {
   }
 }
 
-function renderMonthly(indicator) {
+function renderMonthly(indicator, currentPeriod) {
   const blocks = indicator.datasets.map(dataset => {
     const latest = latestPoint(dataset.points);
     if (!latest) return `<section class="panel"><h2>${escapeHtml(dataset.name)}</h2><div class="chart-empty">Não há valores disponíveis.</div></section>`;
@@ -111,7 +121,11 @@ function renderMonthly(indicator) {
     }).join('');
     return `<section aria-labelledby="dataset-${escapeHtml(indicator.id)}-${escapeHtml(dataset.name)}"><h2 class="sr-only" id="dataset-${escapeHtml(indicator.id)}-${escapeHtml(dataset.name)}">${escapeHtml(dataset.name)}</h2><div class="kpi-grid">${kpis}</div><div class="section-grid section-grid--two"><article class="panel"><h2>Evolução mensal</h2><p class="panel__subtitle">Ano mais recente e ano anterior</p>${line}</article><article class="panel"><h2>${escapeHtml(String(latest.year))}</h2><p class="panel__subtitle">Valores mensais disponíveis</p>${bars}</article></div><article class="panel"><h2>Tabela-resumo</h2><div class="table-wrap"><table><caption>${escapeHtml(dataset.name)} — comparação mensal</caption><thead><tr><th>Mês</th><th>${latest.year}</th><th>${latest.year - 1}</th><th>Variação anual</th></tr></thead><tbody>${rows}</tbody></table></div></article></section>`;
   }).join('');
-  return `${pageHeader(indicator, `Dados até ${formatPeriod(indicator.dataThrough)}. Zeros finais do ano mais recente sem observação posterior são tratados como ausência de dados.`)}${blocks}${metadata(indicator)}`;
+  const hasPartialMonth = indicator.datasets.some(dataset => latestPoint(dataset.points)?.period === currentPeriod);
+  const partialNote = hasPartialMonth
+    ? '<div class="partial-period-note"><span class="pill pill--partial">Período em andamento</span><p>O mês atual pode aparecer nesta análise detalhada, mas não é usado nos cartões da visão geral até seu fechamento.</p></div>'
+    : '';
+  return `${pageHeader(indicator, `Dados até ${formatPeriod(indicator.dataThrough)}. Zeros finais do ano mais recente sem observação posterior são tratados como ausência de dados.`)}${partialNote}${blocks}${metadata(indicator)}`;
 }
 
 function renderAnnualCategories(indicator) {
@@ -186,4 +200,3 @@ function renderEvents(indicator) {
   const quality = indicator.quality?.invalidDateRanges || indicator.quality?.duplicateRows ? `<p class="quality-note">A base contém ${indicator.quality.invalidDateRanges} registro(s) com data final anterior à inicial e ${indicator.quality.duplicateRows} repetição(ões) exata(s) após a primeira ocorrência. Os totais preservam a base original.</p>` : '';
   return `${pageHeader(indicator, 'Contagem de eventos cadastrados por data de início. Não representa público estimado ou realizado.')}<div class="kpi-grid">${cards}</div>${quality}<div class="section-grid section-grid--two"><article class="panel"><h2>Eventos por mês</h2>${barChart({ items: indicator.monthCounts.map(item => ({ label: monthShort(Number(item.period.slice(5))), value: item.value })), unit: 'count', description: 'Eventos cadastrados por mês de início' })}</article><article class="panel"><h2>Principais tipos</h2>${barChart({ items: indicator.typeCounts, unit: 'count', description: 'Eventos por tipo', limit: 10 })}</article></div><article class="panel"><h2>Tabela-resumo mensal</h2><div class="table-wrap"><table><caption>Registros por mês de início</caption><thead><tr><th>Mês</th><th>Eventos</th></tr></thead><tbody>${monthRows}</tbody></table></div></article>${metadata(indicator)}`;
 }
-

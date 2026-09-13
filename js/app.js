@@ -59,7 +59,7 @@ function renderRoute({ focus = false } = {}) {
   elements.nav.innerHTML = renderNavigation(state.payload.indicators, state.activeId);
   elements.view.innerHTML = state.activeId === 'visao-geral'
     ? renderOverview(state.payload)
-    : renderIndicator(state.payload.indicators.find(indicator => indicator.id === state.activeId));
+    : renderIndicator(state.payload.indicators.find(indicator => indicator.id === state.activeId), state.payload.currentPeriod);
   elements.view.setAttribute('aria-busy', 'false');
   document.title = state.activeId === 'visao-geral'
     ? 'Visão geral | Dashboard Pocket do Turismo'

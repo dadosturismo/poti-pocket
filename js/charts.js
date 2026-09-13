@@ -1,6 +1,6 @@
 import { escapeHtml, formatValue } from './format.js';
 
-const COLORS = ['#208052', '#d49a2a', '#3f7792', '#885a9f', '#b65c42', '#6e8f3d', '#4f6a5b', '#c28478'];
+const COLORS = ['#cf2081', '#06b2c1', '#f9c704', '#e7130b', '#32434c', '#139e2c'];
 
 function finite(value) { return typeof value === 'number' && Number.isFinite(value); }
 function xPoint(index, count, left, width) { return count <= 1 ? left + width / 2 : left + (index * width) / (count - 1); }

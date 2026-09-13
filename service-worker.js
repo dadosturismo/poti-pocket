@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turismo-curitiba-pocket-v1';
+const CACHE_NAME = 'turismo-curitiba-pocket-v4';
 const APP_SHELL = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const APP_SHELL = [
   './js/charts.js',
   './js/ui.js',
   './manifest.webmanifest',
+  './assets/poti-logo.png',
   './assets/brand-mark.svg',
   './assets/icon.svg'
 ];
@@ -53,4 +54,3 @@ self.addEventListener('fetch', event => {
     })
   );
 });
-
