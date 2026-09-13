@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turismo-curitiba-pocket-v5';
+const CACHE_NAME = 'turismo-curitiba-pocket-v8';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,8 +12,11 @@ const APP_SHELL = [
   './js/ui.js',
   './manifest.webmanifest',
   './assets/poti-logo.png',
-  './assets/brand-mark.svg',
-  './assets/icon.svg'
+  './assets/poti-icon-48.png',
+  './assets/poti-icon-180.png',
+  './assets/poti-icon-192.png',
+  './assets/poti-icon-512.png',
+  './assets/poti-icon-maskable-512.png'
 ];
 
 self.addEventListener('install', event => {
