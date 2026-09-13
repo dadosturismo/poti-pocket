@@ -1,0 +1,20 @@
+{
+  "name": "Dashboard Pocket do Turismo de Curitiba",
+  "short_name": "Turismo Curitiba",
+  "description": "Indicadores do turismo de Curitiba para consulta rápida e offline.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f6f3",
+  "theme_color": "#176b43",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
