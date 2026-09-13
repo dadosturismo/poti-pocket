@@ -21,7 +21,7 @@ const elements = {
   installButton: document.querySelector('#installButton')
 };
 
-const state = { payload: null, snapshot: null, activeId: 'visao-geral', opened: false, refreshing: false };
+const state = { payload: null, snapshot: null, activeId: 'visao-geral', opened: false, refreshing: false, filters: {} };
 let installPrompt = null;
 
 function setStatus(message = '', error = false) {
@@ -53,19 +53,20 @@ function currentRoute() {
   return id === 'visao-geral' || state.payload?.indicators.some(indicator => indicator.id === id) ? id : 'visao-geral';
 }
 
-function renderRoute({ focus = false } = {}) {
+function renderRoute({ focus = false, scroll = true } = {}) {
   if (!state.payload) return;
   state.activeId = currentRoute();
+  const filter = state.filters[state.activeId] || {};
   elements.nav.innerHTML = renderNavigation(state.payload.indicators, state.activeId);
   elements.view.innerHTML = state.activeId === 'visao-geral'
-    ? renderOverview(state.payload)
-    : renderIndicator(state.payload.indicators.find(indicator => indicator.id === state.activeId), state.payload.currentPeriod);
+    ? renderOverview(state.payload, filter)
+    : renderIndicator(state.payload.indicators.find(indicator => indicator.id === state.activeId), state.payload.currentPeriod, filter);
   elements.view.setAttribute('aria-busy', 'false');
   document.title = state.activeId === 'visao-geral'
     ? 'Visão geral | Dashboard Pocket do Turismo'
     : `${state.payload.indicators.find(indicator => indicator.id === state.activeId)?.shortTitle || 'Indicador'} | Dashboard Pocket do Turismo`;
   closeMenu();
-  window.scrollTo({ top: 0, behavior: 'auto' });
+  if (scroll) window.scrollTo({ top: 0, behavior: 'auto' });
   if (focus) document.querySelector('#conteudo').focus({ preventScroll: true });
 }
 
@@ -147,6 +148,20 @@ elements.menuButton.addEventListener('click', () => elements.sidebar.classList.c
 elements.backdrop.addEventListener('click', closeMenu);
 elements.refreshButton.addEventListener('click', () => refreshData());
 elements.nav.addEventListener('click', event => { if (event.target.closest('a')) closeMenu(); });
+elements.view.addEventListener('change', event => {
+  const select = event.target.closest('[data-period-filter]');
+  if (!select) return;
+  const key = select.dataset.periodFilter;
+  state.filters[state.activeId] = { ...(state.filters[state.activeId] || {}), [key]: select.value };
+  renderRoute({ scroll: false });
+  document.querySelector(`[data-period-filter="${key}"]`)?.focus();
+});
+elements.view.addEventListener('click', event => {
+  const card = event.target.closest('.overview-card');
+  if (!card || state.activeId !== 'visao-geral') return;
+  const indicatorId = decodeURIComponent(card.hash.replace(/^#/, ''));
+  state.filters[indicatorId] = { ...(state.filters['visao-geral'] || {}) };
+});
 window.addEventListener('hashchange', () => renderRoute({ focus: true }));
 window.addEventListener('online', () => { updateNetworkStatus(); if (state.opened) refreshData({ silent: true }); });
 window.addEventListener('offline', updateNetworkStatus);
