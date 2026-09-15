@@ -182,6 +182,22 @@ a { color: inherit; }
 }
 .button--access:hover { background: var(--magenta); }
 .button--access svg { width: 24px; fill: none; stroke: currentColor; stroke-width: 2; }
+.welcome__actions { display: grid; gap: 10px; width: min(100%, 650px); }
+.button--install {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: min(100%, 320px);
+  min-height: 54px;
+  padding: 12px 22px;
+  color: var(--ink);
+  border: 2px solid var(--cyan);
+  background: white;
+  letter-spacing: .02em;
+}
+.button--install:hover { color: white; background: var(--cyan); }
+.button--install svg { width: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .button--secondary {
   width: 100%;
   padding: 10px 14px;
@@ -432,6 +448,7 @@ tbody tr:hover { background: #f8faf8; }
 .noscript { margin: 12px; padding: 12px; color: var(--danger); background: var(--danger-bg); }
 
 @media (min-width: 620px) {
+  .welcome__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .priority-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .priority-preview article:first-child { grid-column: 1 / -1; }
   .kpi-grid, .facts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

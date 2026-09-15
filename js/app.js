@@ -18,7 +18,8 @@ const elements = {
   connectionBadge: document.querySelector('#connectionBadge'),
   offlineBanner: document.querySelector('#offlineBanner'),
   syncLabel: document.querySelector('#syncLabel'),
-  installButton: document.querySelector('#installButton')
+  installButton: document.querySelector('#installButton'),
+  welcomeInstallButton: document.querySelector('#welcomeInstallButton')
 };
 
 const state = { payload: null, snapshot: null, activeId: 'visao-geral', opened: false, refreshing: false, filters: {} };
@@ -167,21 +168,63 @@ window.addEventListener('online', () => { updateNetworkStatus(); if (state.opene
 window.addEventListener('offline', updateNetworkStatus);
 window.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
 
+const standaloneMedia = window.matchMedia('(display-mode: standalone)');
+
+function isInstalled() {
+  return standaloneMedia.matches || window.navigator.standalone === true;
+}
+
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function updateInstallButtons() {
+  const canInstall = !isInstalled() && (Boolean(installPrompt) || isIosDevice());
+  elements.installButton.hidden = !canInstall;
+  elements.welcomeInstallButton.hidden = !canInstall;
+}
+
+async function requestInstall() {
+  if (isInstalled()) {
+    updateInstallButtons();
+    return;
+  }
+  if (!installPrompt) {
+    const message = 'No iPhone ou iPad, toque em Compartilhar e depois em “Adicionar à Tela de Início”.';
+    if (elements.welcome.hidden) setStatus(message);
+    else elements.accessStatus.textContent = message;
+    return;
+  }
+
+  const prompt = installPrompt;
+  installPrompt = null;
+  updateInstallButtons();
+  await prompt.prompt();
+  const choice = await prompt.userChoice;
+  if (choice.outcome === 'dismissed') {
+    const message = 'Instalação cancelada. Você pode tentar novamente pelo menu do navegador.';
+    if (elements.welcome.hidden) setStatus(message);
+    else elements.accessStatus.textContent = message;
+  }
+}
+
 window.addEventListener('beforeinstallprompt', event => {
   event.preventDefault();
   installPrompt = event;
-  elements.installButton.hidden = false;
+  updateInstallButtons();
 });
-elements.installButton.addEventListener('click', async () => {
-  if (!installPrompt) return;
-  installPrompt.prompt();
-  await installPrompt.userChoice;
+elements.installButton.addEventListener('click', requestInstall);
+elements.welcomeInstallButton.addEventListener('click', requestInstall);
+window.addEventListener('appinstalled', () => {
   installPrompt = null;
-  elements.installButton.hidden = true;
+  updateInstallButtons();
+  elements.accessStatus.textContent = 'Aplicativo instalado com sucesso.';
 });
-window.addEventListener('appinstalled', () => { elements.installButton.hidden = true; installPrompt = null; });
+standaloneMedia.addEventListener?.('change', updateInstallButtons);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
 }
 updateNetworkStatus();
+updateInstallButtons();

@@ -38,10 +38,16 @@
         <article><span>05</span><strong>Rodoviária de Curitiba</strong><small>Desembarques</small></article>
       </div>
 
-      <button id="accessButton" class="button button--access" type="button">
-        <span>ACESSAR</span>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-5 5 5-5 5"/></svg>
-      </button>
+      <div class="welcome__actions">
+        <button id="accessButton" class="button button--access" type="button">
+          <span>ACESSAR</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-5 5 5-5 5"/></svg>
+        </button>
+        <button id="welcomeInstallButton" class="button button--install" type="button" hidden>
+          <span>Instalar app</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 19h14"/></svg>
+        </button>
+      </div>
       <p id="accessStatus" class="welcome__status" role="status" aria-live="polite"></p>
       <p class="privacy-note">Ao acessar, é registrada somente a data e hora do clique. Nenhum dado pessoal é coletado.</p>
     </div>
@@ -73,7 +79,7 @@
         <nav id="indicatorNav" class="indicator-nav"></nav>
         <div class="sidebar__footer">
           <p id="syncLabel">Dados ainda não sincronizados</p>
-          <button id="installButton" class="button button--secondary" type="button" hidden>Instalar aplicativo</button>
+          <button id="installButton" class="button button--secondary" type="button" hidden>Instalar app</button>
         </div>
       </aside>
       <button id="sidebarBackdrop" class="sidebar-backdrop" type="button" aria-label="Fechar menu" hidden></button>

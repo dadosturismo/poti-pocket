@@ -1,6 +1,7 @@
 {
   "name": "Dashboard Pocket do Turismo de Curitiba",
   "short_name": "Turismo Curitiba",
+  "id": "./",
   "description": "Indicadores do turismo de Curitiba para consulta rápida e offline.",
   "lang": "pt-BR",
   "start_url": "./index.html",
