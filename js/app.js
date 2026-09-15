@@ -1,4 +1,5 @@
 import { apiRequest } from './api.js';
+import { APP_CONFIG } from './config.js';
 import { escapeHtml, formatDateTime } from './format.js';
 import { loadSnapshot, saveSnapshot } from './store.js';
 import { renderIndicator, renderNavigation, renderOverview } from './ui.js';
@@ -95,7 +96,7 @@ async function refreshData({ silent = false } = {}) {
       applySnapshot(snapshot, `Não foi possível atualizar agora. Exibindo a cópia salva em ${formatDateTime(snapshot.savedAt)}.`);
     } else {
       elements.view.setAttribute('aria-busy', 'false');
-      elements.view.innerHTML = '<section class="panel"><h1>Dados indisponíveis</h1><p>Não há uma cópia offline neste dispositivo.</p></section>';
+      elements.view.innerHTML = '<section class="panel"><h1>Dados indisponíveis</h1><p>Não há uma cópia offline neste dispositivo. A primeira atualização pode levar até um minuto.</p><button class="button button--secondary" type="button" data-retry-data>Tentar novamente</button></section>';
       setStatus(error.message, true);
       elements.syncLabel.textContent = 'Dados ainda não sincronizados';
     }
@@ -106,11 +107,20 @@ async function refreshData({ silent = false } = {}) {
   }
 }
 
+function registerAccessInBackground() {
+  if (!navigator.onLine) return;
+  void apiRequest('log', { timeoutMs: APP_CONFIG.LOG_TIMEOUT_MS }).catch(() => {
+    if (state.payload && !elements.appStatus.textContent) {
+      setStatus('Não foi possível registrar a data/hora deste acesso. O painel continua disponível.');
+    }
+  });
+}
+
 async function openDashboard() {
   if (state.opened) return;
   state.opened = true;
   elements.accessButton.disabled = true;
-  elements.accessStatus.textContent = navigator.onLine ? 'Abrindo o painel e registrando o acesso…' : 'Abrindo os últimos dados salvos…';
+  elements.accessStatus.textContent = navigator.onLine ? 'Abrindo o painel…' : 'Abrindo os últimos dados salvos…';
   elements.dashboard.hidden = false;
   elements.welcome.hidden = true;
   showLoading();
@@ -122,13 +132,9 @@ async function openDashboard() {
     applySnapshot(cached);
   }
 
-  const logAttempt = navigator.onLine ? apiRequest('log') : Promise.reject(new Error('Acesso não registrado porque o dispositivo está offline.'));
-  const results = await Promise.allSettled([logAttempt, refreshData({ silent: Boolean(cached?.payload) })]);
-  if (results[0].status === 'rejected' && state.payload) {
-    const suffix = cached?.payload ? ' O painel continua disponível com os dados salvos.' : '';
-    setStatus(`Não foi possível registrar a data/hora do acesso.${suffix}`);
-  }
+  await refreshData({ silent: Boolean(cached?.payload) });
   document.querySelector('#conteudo').focus();
+  registerAccessInBackground();
 }
 
 function openMenu() {
@@ -158,6 +164,10 @@ elements.view.addEventListener('change', event => {
   document.querySelector(`[data-period-filter="${key}"]`)?.focus();
 });
 elements.view.addEventListener('click', event => {
+  if (event.target.closest('[data-retry-data]')) {
+    refreshData();
+    return;
+  }
   const card = event.target.closest('.overview-card');
   if (!card || state.activeId !== 'visao-geral') return;
   const indicatorId = decodeURIComponent(card.hash.replace(/^#/, ''));

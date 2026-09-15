@@ -8,7 +8,7 @@ function configuredUrl() {
   return url;
 }
 
-export function apiRequest(action) {
+export function apiRequest(action, { timeoutMs = APP_CONFIG.API_TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.onLine) {
       reject(new Error('Sem conexão com a internet.'));
@@ -17,9 +17,15 @@ export function apiRequest(action) {
 
     const callback = `pocketTurismo_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement('script');
-    const timeout = window.setTimeout(() => finish(new Error('O servidor demorou para responder.')), APP_CONFIG.API_TIMEOUT_MS);
+    const timeout = window.setTimeout(
+      () => finish(new Error('A preparação dos dados demorou mais que o esperado. Tente novamente.')),
+      timeoutMs
+    );
+    let completed = false;
 
     function finish(error, payload) {
+      if (completed) return;
+      completed = true;
       window.clearTimeout(timeout);
       delete window[callback];
       script.remove();
@@ -49,4 +55,3 @@ export function apiRequest(action) {
     }
   });
 }
-

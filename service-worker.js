@@ -1,4 +1,4 @@
-const CACHE_NAME = 'turismo-curitiba-pocket-v9';
+const CACHE_NAME = 'turismo-curitiba-pocket-v10';
 const APP_SHELL = [
   './',
   './index.html',
