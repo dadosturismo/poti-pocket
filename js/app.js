@@ -1,7 +1,7 @@
 import { apiRequest } from './api.js';
 import { APP_CONFIG } from './config.js';
 import { escapeHtml, formatDateTime } from './format.js';
-import { loadSnapshot, saveSnapshot } from './store.js';
+import { clearDashboardSnapshots, loadSnapshot, recordAccess, saveSnapshot } from './store.js';
 import { renderIndicator, renderNavigation, renderOverview } from './ui.js';
 
 const elements = {
@@ -16,15 +16,18 @@ const elements = {
   backdrop: document.querySelector('#sidebarBackdrop'),
   menuButton: document.querySelector('#menuButton'),
   refreshButton: document.querySelector('#refreshButton'),
+  forceRefreshButton: document.querySelector('#forceRefreshButton'),
   connectionBadge: document.querySelector('#connectionBadge'),
   offlineBanner: document.querySelector('#offlineBanner'),
   syncLabel: document.querySelector('#syncLabel'),
+  loadAllButton: document.querySelector('#loadAllButton'),
   installButton: document.querySelector('#installButton'),
   welcomeInstallButton: document.querySelector('#welcomeInstallButton')
 };
 
 const state = { payload: null, snapshot: null, activeId: 'visao-geral', opened: false, refreshing: false, filters: {} };
 let installPrompt = null;
+let inactivityTimer = null;
 
 function setStatus(message = '', error = false) {
   elements.appStatus.innerHTML = message ? `<p class="status-message${error ? ' status-message--error' : ''}">${escapeHtml(message)}</p>` : '';
@@ -72,28 +75,53 @@ function renderRoute({ focus = false, scroll = true } = {}) {
   if (focus) document.querySelector('#conteudo').focus({ preventScroll: true });
 }
 
+function dataScope(payload = state.payload) {
+  return payload?.dataScope === 'all' ? 'all' : 'priority';
+}
+
+function snapshotKey(scope) {
+  return scope === 'all' ? APP_CONFIG.ALL_DATA_KEY : APP_CONFIG.DATA_KEY;
+}
+
+function updateLoadAllButton() {
+  const hasMoreIndicators = Boolean(state.payload?.hasMoreIndicators);
+  elements.loadAllButton.hidden = !hasMoreIndicators;
+  elements.loadAllButton.disabled = state.refreshing;
+}
+
 function applySnapshot(snapshot, message = '') {
   state.snapshot = snapshot;
   state.payload = snapshot.payload;
-  elements.syncLabel.textContent = `Sincronizado em ${formatDateTime(snapshot.savedAt)}`;
+  const isPartial = state.payload.hasMoreIndicators;
+  elements.syncLabel.textContent = `${isPartial ? 'Indicadores principais' : 'Todos os indicadores'} sincronizados em ${formatDateTime(snapshot.savedAt)}`;
   renderRoute();
+  updateLoadAllButton();
   updateNetworkStatus();
-  setStatus(message);
+  const partialMessage = isPartial ? 'Exibindo os indicadores principais. Abra o menu para carregar todos.' : '';
+  setStatus([message, partialMessage].filter(Boolean).join(' '));
 }
 
-async function refreshData({ silent = false } = {}) {
+async function refreshData({ silent = false, scope = 'priority', force = false } = {}) {
   if (state.refreshing) return;
+  const requestedScope = scope === 'all' ? 'all' : 'priority';
+  const requestedSnapshotKey = snapshotKey(requestedScope);
   state.refreshing = true;
   elements.refreshButton.disabled = true;
+  updateLoadAllButton();
   if (!silent) showLoading();
   try {
-    const payload = await apiRequest('data');
-    const snapshot = await saveSnapshot(payload);
+    const action = force ? 'data-all-force' : requestedScope === 'all' ? 'data-all' : 'data';
+    const payload = await apiRequest(action);
+    const snapshot = await saveSnapshot(payload, requestedSnapshotKey);
     applySnapshot(snapshot, payload.unavailable?.length ? `${payload.unavailable.length} indicador(es) configurado(s) não foram encontrados na planilha.` : '');
   } catch (error) {
-    const snapshot = state.snapshot || await loadSnapshot();
+    const currentSnapshot = state.snapshot?.payload?.dataScope === requestedScope ? state.snapshot : null;
+    const snapshot = currentSnapshot || await loadSnapshot(requestedSnapshotKey);
     if (snapshot?.payload) {
       applySnapshot(snapshot, `Não foi possível atualizar agora. Exibindo a cópia salva em ${formatDateTime(snapshot.savedAt)}.`);
+    } else if (state.payload && requestedScope === 'all') {
+      renderRoute({ scroll: false });
+      setStatus('Não foi possível carregar todos os indicadores. Os indicadores principais continuam disponíveis.', true);
     } else {
       elements.view.setAttribute('aria-busy', 'false');
       elements.view.innerHTML = '<section class="panel"><h1>Dados indisponíveis</h1><p>Não há uma cópia offline neste dispositivo. A primeira atualização pode levar até um minuto.</p><button class="button button--secondary" type="button" data-retry-data>Tentar novamente</button></section>';
@@ -103,17 +131,69 @@ async function refreshData({ silent = false } = {}) {
   } finally {
     state.refreshing = false;
     elements.refreshButton.disabled = false;
+    updateLoadAllButton();
     updateNetworkStatus();
   }
 }
 
-function registerAccessInBackground() {
-  if (!navigator.onLine) return;
-  void apiRequest('log', { timeoutMs: APP_CONFIG.LOG_TIMEOUT_MS }).catch(() => {
-    if (state.payload && !elements.appStatus.textContent) {
-      setStatus('Não foi possível registrar a data/hora deste acesso. O painel continua disponível.');
-    }
-  });
+function loadAllIndicators() {
+  if (!state.payload?.hasMoreIndicators || state.refreshing) return;
+  refreshData({ scope: 'all' });
+}
+
+async function forceRefresh() {
+  if (state.refreshing) return;
+  elements.forceRefreshButton.disabled = true;
+  try {
+    await clearDashboardSnapshots();
+    state.payload = null;
+    state.snapshot = null;
+    state.activeId = 'visao-geral';
+    state.filters = {};
+    elements.syncLabel.textContent = 'Cópias salvas removidas. Atualizando todos os indicadores…';
+    updateLoadAllButton();
+    await refreshData({ scope: 'all', force: true });
+  } finally {
+    elements.forceRefreshButton.disabled = false;
+  }
+}
+
+function resetInactivityTimer() {
+  if (!state.opened) return;
+  window.clearTimeout(inactivityTimer);
+  inactivityTimer = window.setTimeout(returnToWelcome, APP_CONFIG.INACTIVITY_TIMEOUT_MS);
+}
+
+function returnToWelcome() {
+  if (!state.opened) return;
+  window.clearTimeout(inactivityTimer);
+  inactivityTimer = null;
+  state.opened = false;
+  state.activeId = 'visao-geral';
+  state.filters = {};
+  state.payload = null;
+  state.snapshot = null;
+  elements.dashboard.hidden = true;
+  elements.welcome.hidden = false;
+  elements.accessButton.disabled = false;
+  elements.accessStatus.textContent = 'Sessão encerrada por inatividade.';
+  elements.syncLabel.textContent = 'Dados ainda não sincronizados';
+  updateLoadAllButton();
+  document.title = 'Dashboard Pocket do Turismo de Curitiba';
+  closeMenu();
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  elements.accessButton.focus({ preventScroll: true });
+}
+
+async function handleAccessClick() {
+  if (state.opened || elements.accessButton.disabled) return;
+  elements.accessButton.disabled = true;
+  try {
+    await recordAccess();
+  } catch {
+    // O painel permanece acessível mesmo se o armazenamento local estiver bloqueado.
+  }
+  openDashboard();
 }
 
 async function openDashboard() {
@@ -125,7 +205,7 @@ async function openDashboard() {
   elements.welcome.hidden = true;
   showLoading();
 
-  const cached = await loadSnapshot();
+  const cached = await loadSnapshot(APP_CONFIG.DATA_KEY);
   if (cached?.payload) {
     state.snapshot = cached;
     state.payload = cached.payload;
@@ -134,7 +214,7 @@ async function openDashboard() {
 
   await refreshData({ silent: Boolean(cached?.payload) });
   document.querySelector('#conteudo').focus();
-  registerAccessInBackground();
+  resetInactivityTimer();
 }
 
 function openMenu() {
@@ -150,10 +230,12 @@ function closeMenu() {
   elements.menuButton.setAttribute('aria-expanded', 'false');
 }
 
-elements.accessButton.addEventListener('click', openDashboard);
+elements.accessButton.addEventListener('click', handleAccessClick);
 elements.menuButton.addEventListener('click', () => elements.sidebar.classList.contains('is-open') ? closeMenu() : openMenu());
 elements.backdrop.addEventListener('click', closeMenu);
-elements.refreshButton.addEventListener('click', () => refreshData());
+elements.refreshButton.addEventListener('click', () => refreshData({ scope: dataScope() }));
+elements.forceRefreshButton.addEventListener('click', forceRefresh);
+elements.loadAllButton.addEventListener('click', loadAllIndicators);
 elements.nav.addEventListener('click', event => { if (event.target.closest('a')) closeMenu(); });
 elements.view.addEventListener('change', event => {
   const select = event.target.closest('[data-period-filter]');
@@ -174,9 +256,15 @@ elements.view.addEventListener('click', event => {
   state.filters[indicatorId] = { ...(state.filters['visao-geral'] || {}) };
 });
 window.addEventListener('hashchange', () => renderRoute({ focus: true }));
-window.addEventListener('online', () => { updateNetworkStatus(); if (state.opened) refreshData({ silent: true }); });
+window.addEventListener('online', () => { updateNetworkStatus(); if (state.opened) refreshData({ silent: true, scope: dataScope() }); });
 window.addEventListener('offline', updateNetworkStatus);
 window.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
+['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'].forEach(eventName => {
+  window.addEventListener(eventName, resetInactivityTimer, { passive: eventName !== 'keydown' });
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) resetInactivityTimer();
+});
 
 const standaloneMedia = window.matchMedia('(display-mode: standalone)');
 
@@ -237,4 +325,5 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
 }
 updateNetworkStatus();
+updateLoadAllButton();
 updateInstallButtons();

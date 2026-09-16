@@ -257,6 +257,21 @@ a { color: inherit; }
 .connection-badge { display: none; font-size: .75rem; font-weight: 800; }
 .connection-badge.online { color: var(--green); }
 .connection-badge.offline { color: var(--red); }
+.force-refresh-button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #b9c6cb;
+  border-radius: 9px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+  font-size: .70rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+.force-refresh-button:hover { background: #eef2f3; }
+.force-refresh-button:disabled { cursor: wait; opacity: .6; }
 
 .app-shell { min-height: calc(100vh - 74px); }
 .sidebar {
@@ -463,7 +478,13 @@ tbody tr:hover { background: #f8faf8; }
 @media (max-width: 520px) {
   .identity--compact span { display: none; }
   .topbar { padding-inline: 8px; }
+  .force-refresh-button { max-width: 104px; padding-inline: 7px; font-size: .64rem; }
   .donut-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 380px) {
+  .poti-logo--compact { width: 120px; }
+  #refreshButton { display: none; }
 }
 
 @media (min-width: 980px) {

@@ -40,7 +40,7 @@
 
       <div class="welcome__actions">
         <button id="accessButton" class="button button--access" type="button">
-          <span>ACESSAR</span>
+          <span>VAMOS CONHECER CURITIBA!</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-5 5 5-5 5"/></svg>
         </button>
         <button id="welcomeInstallButton" class="button button--install" type="button" hidden>
@@ -49,7 +49,7 @@
         </button>
       </div>
       <p id="accessStatus" class="welcome__status" role="status" aria-live="polite"></p>
-      <p class="privacy-note">Ao acessar, é registrada somente a data e hora do clique. Nenhum dado pessoal é coletado.</p>
+      <p class="privacy-note">Ao acessar, são salvas neste dispositivo somente a data e a hora do clique. Nenhum dado pessoal é transmitido.</p>
     </div>
   </section>
 
@@ -67,6 +67,7 @@
       </a>
       <div class="topbar__actions">
         <span id="connectionBadge" class="connection-badge" aria-live="polite"></span>
+        <button id="forceRefreshButton" class="force-refresh-button" type="button">Forçar atualização</button>
         <button id="refreshButton" class="icon-button" type="button">
           <span class="sr-only">Atualizar dados</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 8A7 7 0 0 1 18.6 6L20 8m-16 8 1.4 2A7 7 0 0 0 17.9 16"/></svg>
@@ -79,6 +80,7 @@
         <nav id="indicatorNav" class="indicator-nav"></nav>
         <div class="sidebar__footer">
           <p id="syncLabel">Dados ainda não sincronizados</p>
+          <button id="loadAllButton" class="button button--secondary" type="button" hidden>Carregar todos os indicadores</button>
           <button id="installButton" class="button button--secondary" type="button" hidden>Instalar app</button>
         </div>
       </aside>
