@@ -40,7 +40,13 @@ export async function saveSnapshot(payload, key = APP_CONFIG.DATA_KEY) {
   try {
     await transact(SNAPSHOT_STORE_NAME, 'readwrite', store => store.put(snapshot, key));
   } catch {
-    localStorage.setItem(key, JSON.stringify(snapshot));
+    // Navegadores sem IndexedDB tentam o fallback; se o armazenamento estiver
+    // indisponível ou cheio, o painel ainda pode continuar com os dados em memória.
+    try {
+      localStorage.setItem(key, JSON.stringify(snapshot));
+    } catch {
+      // Não há espaço ou permissão para persistir neste navegador.
+    }
   }
   return snapshot;
 }
@@ -68,7 +74,11 @@ export async function clearDashboardSnapshots() {
   } catch {
     // O fallback de localStorage é limpo abaixo mesmo quando o IndexedDB falha.
   }
-  keys.forEach(key => localStorage.removeItem(key));
+  try {
+    keys.forEach(key => localStorage.removeItem(key));
+  } catch {
+    // O cache em memória e as cópias do IndexedDB já foram tratados acima.
+  }
 }
 
 export async function recordAccess() {

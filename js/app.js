@@ -83,6 +83,10 @@ function snapshotKey(scope) {
   return scope === 'all' ? APP_CONFIG.ALL_DATA_KEY : APP_CONFIG.DATA_KEY;
 }
 
+function snapshotForScope(snapshot, scope) {
+  return snapshot?.payload?.dataScope === scope && Array.isArray(snapshot.payload.indicators) ? snapshot : null;
+}
+
 function updateLoadAllButton() {
   const hasMoreIndicators = Boolean(state.payload?.hasMoreIndicators);
   elements.loadAllButton.hidden = !hasMoreIndicators;
@@ -205,14 +209,19 @@ async function openDashboard() {
   elements.welcome.hidden = true;
   showLoading();
 
-  const cached = await loadSnapshot(APP_CONFIG.DATA_KEY);
+  const [savedAll, savedPriority] = await Promise.all([
+    loadSnapshot(APP_CONFIG.ALL_DATA_KEY),
+    loadSnapshot(APP_CONFIG.DATA_KEY)
+  ]);
+  // Uma cópia completa já solicitada pelo usuário tem precedência e não é
+  // substituída pela atualização automática dos cinco indicadores principais.
+  const cachedAll = snapshotForScope(savedAll, 'all');
+  const cached = cachedAll || snapshotForScope(savedPriority, 'priority');
   if (cached?.payload) {
-    state.snapshot = cached;
-    state.payload = cached.payload;
     applySnapshot(cached);
   }
 
-  await refreshData({ silent: Boolean(cached?.payload) });
+  if (!cachedAll) await refreshData({ silent: Boolean(cached?.payload) });
   document.querySelector('#conteudo').focus();
   resetInactivityTimer();
 }
